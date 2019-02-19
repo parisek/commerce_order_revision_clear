@@ -5,7 +5,7 @@ This is lightweight module that solves issue that database is getting really hug
 
 How it works?
 ===
-We are using [https://www.drupal.org/project/commerce/issues/2442049](https://www.drupal.org/project/commerce/issues/2442049) code from provided batch to leverage Entity API module. With every CRON run we delete 50 oldest revisions which are older than 30 days. This module has no configuration, but could be easily customized in code for your special needs.
+We are using [https://www.drupal.org/project/commerce/issues/2442049](https://www.drupal.org/project/commerce/issues/2442049) code from provided patch to leverage Entity API module. With every CRON run we delete 50 oldest revisions which are older than 30 days. This module has no configuration, but could be easily customized in code for your special needs.
 
 **Do not test it in production and backup your database first**
 
