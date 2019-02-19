@@ -1,0 +1,79 @@
+<?php
+
+/**
+ * Implements hook_cron().
+ */
+function commerce_order_revision_clear_cron() {
+
+  $day = 30;
+  $order_limit = 50;
+
+  $query = db_select('commerce_order_revision', 'o')
+    ->condition('o.revision_timestamp', REQUEST_TIME-86400*$day, '<')
+    ->fields('o',array('order_id'))
+    ->groupBy('o.order_id')
+    ->orderBy('oidcount', 'DESC');
+
+  $query->addExpression('COUNT(o.order_id)', 'oidcount');
+  $query->havingCondition('oidcount', 1, '>');
+
+  $oids = $query->execute()->fetchCol('order_id');
+
+  $oids_sliced = array_slice($oids, 0, $order_limit);
+
+  foreach ($oids_sliced as $order_id) {
+    $revisions = db_select('commerce_order_revision', 'r')
+      ->condition('r.order_id', $order_id)
+      ->fields('r',array('revision_id'))
+      ->execute()
+      ->fetchCol();
+    if(count($revisions) > 1) {
+      foreach ($revisions as $revision_id) {
+        entity_revision_delete('commerce_order', $revision_id);
+      }
+    }
+  }
+
+  watchdog('commerce_order_revision_clear', t('Removed revisions from @limit/@total orders in queue.', ['@limit' => $order_limit, '@total' => count($oids)]));
+
+}
+
+/**
+ * Implements hook_entity_info_alter().
+ */
+function commerce_order_revision_clear_entity_info_alter(&$entity_info) {
+  if(!isset($entity_info['commerce_order']['revision deletion callback'])) {
+    $entity_info['commerce_order']['revision deletion callback'] = '_commerce_order_revision_clear_revision_delete';
+  }
+}
+
+/**
+ * Deletes a commerce_order revision.
+ *
+ * @param $revision_id
+ *   The revision ID to delete.
+ */
+function _commerce_order_revision_clear_revision_delete($revision_id) {
+
+  if ($revisions = commerce_order_load_multiple(array(), array('revision_id' => $revision_id))) {
+
+    $revision = $revisions ? reset($revisions) : FALSE;
+    // Prevent deleting the current revision.
+    if (!$revision || commerce_order_is_latest_revision($revision)) {
+      return FALSE;
+    }
+
+    // Delete order revision.
+    db_delete('commerce_order_revision')
+      ->condition('order_id', $revision->order_id)
+      ->condition('revision_id', $revision->revision_id)
+      ->execute();
+
+    module_invoke_all('commerce_order_revision_delete', $revision);
+    field_attach_delete_revision('commerce_order', $revision);
+
+    return TRUE;
+  }
+
+  return FALSE;
+}

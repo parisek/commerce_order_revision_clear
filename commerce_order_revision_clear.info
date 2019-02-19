@@ -1,0 +1,6 @@
+name = Commerce order revision clear
+description = Custom module for automatically clearing old order revisions via CRON.
+package = Commerce
+core = 7.x
+
+dependencies[] = commerce_order
